@@ -1,17 +1,19 @@
-//setup the dependencies
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const {verify,verifyAdmin} = require("../auth");
-const userController = require("../controllers/userController");
+const userController = require('../controllers/userController');
+const auth = require('../auth');
 
-router.post("/register",  userController.registerUser)
+// User registration and login
+router.post('/register', userController.registerUser);
+router.post('/login', userController.loginUser);
 
-router.post("/login", userController.loginUser)
+// User profile routes
+router.get('/details', auth.verify, userController.getProfile);
+router.patch('/update-profile', auth.verify, userController.updateProfile);
+router.patch('/reset-password', auth.verify, userController.resetPassword);
+router.post('/check-email', userController.checkEmailExists);
 
-router.get("/details", verify, userController.getProfile)
-
-router.patch('/resetPassword', verify, userController.resetPassword);
-
-router.patch("/:id/setAsAdmin", verify, verifyAdmin,  userController.setAsAdmin)
+// Admin routes
+router.patch('/:id/set-as-admin', auth.verify, auth.verifyAdmin, userController.setAsAdmin);
 
 module.exports = router;

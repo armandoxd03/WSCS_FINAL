@@ -1,36 +1,31 @@
 import React, { useState, useEffect, useContext } from 'react';
 import AdminView from '../components/AdminView';
 import CustomerView from '../components/CustomerView';
-import { Container } from 'react-bootstrap';
-
+import { Container, Spinner } from 'react-bootstrap';
 import UserContext from '../UserContext';
 
-export default function Products(){
+export default function Products() {
+    const { user } = useContext(UserContext);
+    const [isLoading, setIsLoading] = useState(true);
 
-	const { user } = useContext(UserContext)
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsLoading(false);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, []);
 
-	const [ products, setProducts ] = useState([]);
+    if (isLoading) {
+        return (
+            <Container className="d-flex justify-content-center align-items-center" style={{ height: '50vh' }}>
+                <Spinner animation="border" variant="primary" />
+            </Container>
+        );
+    }
 
-	const fetchData = () => {
-		fetch(`${ process.env.REACT_APP_API_URL}/products/all`)
-		.then(res => res.json())
-		.then(data => {
-			setProducts(data);
-		})
-	};
-
-	useEffect(() => {
-		fetchData();
-	}, []);
-
-	return(
-		<Container>
-			{
-				user.isAdmin === true ?
-					<AdminView fetchData={fetchData}/>
-				:
-					<CustomerView/>
-			}
-		</Container>
-	)
+    return (
+        <Container className="py-4">
+            {user.isAdmin ? <AdminView /> : <CustomerView />}
+        </Container>
+    );
 }

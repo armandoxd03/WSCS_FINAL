@@ -1,20 +1,35 @@
 import React, { useState, useContext } from 'react';
-import { Form, Button, Modal } from 'react-bootstrap';
+import { Button, Modal, Form } from 'react-bootstrap';
 import Swal from 'sweetalert2';
 import UserContext from '../UserContext';
 
 const ResetPassword = () => {
   const { user } = useContext(UserContext);
   const [showModal, setShowModal] = useState(false);
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
 
-  const handleClose = () => setShowModal(false);
+  const handleClose = () => {
+    setShowModal(false);
+    setPasswordData({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    });
+  };
+
   const handleShow = () => setShowModal(true);
 
-  const handleResetPassword = () => {
-    // Check if passwords match
-    if (password !== confirmPassword) {
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setPasswordData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleResetPassword = async () => {
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
       Swal.fire({
         title: 'Password Mismatch',
         icon: 'error',
@@ -23,49 +38,53 @@ const ResetPassword = () => {
       return;
     }
 
-    // Make an API request to reset the password
-    fetch(`${process.env.REACT_APP_API_URL}/users/resetPassword`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      },
-      body: JSON.stringify({
-        newPassword: password,
-      }),
-    })
-      .then((response) => {
-        if (response.ok) {
-          return response.json();
-        } else {
-          throw new Error('Error resetting password');
-        }
-      })
-      .then((result) => {
-        // Handle success
-        Swal.fire({
-          title: 'Password Reset Successful!',
-          icon: 'success',
-          text: 'Your password has been successfully reset.',
-        });
-
-        // Close the modal after successful password reset
-        handleClose();
-      })
-      .catch((error) => {
-        // Handle error
-        console.error('Error resetting password:', error);
-        Swal.fire({
-          title: 'Password Reset Failed',
-          icon: 'error',
-          text: 'An error occurred while resetting your password. Please try again.',
-        });
+    if (passwordData.newPassword.length < 8) {
+      Swal.fire({
+        title: 'Password Too Short',
+        icon: 'error',
+        text: 'Password must be at least 8 characters long.',
       });
+      return;
+    }
+
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/users/reset-password`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to reset password');
+      }
+
+      Swal.fire({
+        title: 'Password Reset Successful!',
+        icon: 'success',
+        text: 'Your password has been successfully reset.',
+      });
+
+      handleClose();
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      Swal.fire({
+        title: 'Password Reset Failed',
+        icon: 'error',
+        text: error.message || 'An error occurred while resetting your password. Please try again.',
+      });
+    }
   };
 
   return (
     <>
-      <Button variant="info" onClick={handleShow}>
+      <Button variant="outline-danger" onClick={handleShow}>
         Reset Password
       </Button>
 
@@ -75,23 +94,36 @@ const ResetPassword = () => {
         </Modal.Header>
         <Modal.Body>
           <Form>
-            <Form.Group controlId="formPassword">
-              <Form.Label>New Password</Form.Label>
+            <Form.Group className="mb-3">
+              <Form.Label>Current Password</Form.Label>
               <Form.Control
                 type="password"
-                placeholder="Enter your new password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                name="currentPassword"
+                value={passwordData.currentPassword}
+                onChange={handleInputChange}
+                required
               />
             </Form.Group>
 
-            <Form.Group controlId="formConfirmPassword">
-              <Form.Label>Confirm Password</Form.Label>
+            <Form.Group className="mb-3">
+              <Form.Label>New Password</Form.Label>
               <Form.Control
                 type="password"
-                placeholder="Confirm your new password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                name="newPassword"
+                value={passwordData.newPassword}
+                onChange={handleInputChange}
+                required
+              />
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label>Confirm New Password</Form.Label>
+              <Form.Control
+                type="password"
+                name="confirmPassword"
+                value={passwordData.confirmPassword}
+                onChange={handleInputChange}
+                required
               />
             </Form.Group>
           </Form>

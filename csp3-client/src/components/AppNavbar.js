@@ -1,67 +1,124 @@
-import React, { useContext } from 'react';
-import { Navbar, Nav, Container, Badge } from 'react-bootstrap';
+import React, { useContext, useState, useEffect } from 'react';
+import { Navbar, Nav, Container, Image } from 'react-bootstrap';
 import { Link, useLocation } from 'react-router-dom';
-import { FaShoppingCart, FaUserCircle } from 'react-icons/fa';
+import { FaShoppingCart } from 'react-icons/fa';
 import UserContext from '../UserContext';
 
 export default function AppNavBar() {
     const { user } = useContext(UserContext);
     const location = useLocation();
+    const [cartCount, setCartCount] = useState(0);
+    const [profilePicture, setProfilePicture] = useState('https://images.rawpixel.com/image_png_800/cHJpdmF0ZS9sci9pbWFnZXMvd2Vic2l0ZS8yMDIzLTAxL3JtNjA5LXNvbGlkaWNvbi13LTAwMi1wLnBuZw.png');
+
+    useEffect(() => {
+        if (user.id) {
+            fetchUserDetails();
+            if (!user.isAdmin) {
+                fetchCartCount();
+            }
+        }
+    }, [user.id, user.isAdmin]);
+
+    const fetchUserDetails = () => {
+        fetch(`${process.env.REACT_APP_API_URL}/users/details`, {
+            headers: {
+                Authorization: `Bearer ${localStorage.getItem('token')}`,
+            },
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.profilePicture) {
+                setProfilePicture(data.profilePicture);
+            }
+        })
+        .catch(err => console.error('Error fetching user details:', err));
+    };
+
+    const fetchCartCount = () => {
+        fetch(`${process.env.REACT_APP_API_URL}/cart`, {
+            headers: {
+                Authorization: `Bearer ${localStorage.getItem('token')}`,
+            },
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data && data.cartItems) {
+                setCartCount(data.cartItems.length);
+            }
+        })
+        .catch(err => console.error('Error fetching cart count:', err));
+    };
 
     return (
-        <Navbar bg="dark" variant="dark" expand="lg" sticky="top" className="navbar-custom">
+        <Navbar bg="dark" variant="dark" expand="lg" sticky="top" className="shadow-sm">
             <Container>
-                <Link className="navbar-brand d-flex align-items-center" to="/">
-                    <span className="brand-logo">UA Shop</span>
-                </Link>
+                <Navbar.Brand as={Link} to="/" className="fw-bold">
+                    UA Shop
+                </Navbar.Brand>
                 <Navbar.Toggle aria-controls="basic-navbar-nav" />
                 <Navbar.Collapse id="basic-navbar-nav">
                     <Nav className="me-auto">
-                        <Link 
-                            className={`nav-link ${location.pathname === '/products' ? 'active' : ''}`} 
-                            to="/products"
+                        <Nav.Link 
+                            as={Link} 
+                            to="/products" 
+                            active={location.pathname === '/products'}
                         >
                             {user.isAdmin ? 'Admin Dashboard' : 'Products'}
-                        </Link>
+                        </Nav.Link>
                     </Nav>
                     <Nav>
                         {user.id ? (
                             <>
                                 {!user.isAdmin && (
                                     <>
-                                        <Link className="nav-link position-relative" to="/cart">
+                                        <Nav.Link as={Link} to="/cart" className="position-relative mx-2">
                                             <FaShoppingCart size={20} />
-                                            <Badge pill bg="primary" className="cart-badge">
-                                                3 {/* Dynamic count from cart */}
-                                            </Badge>
-                                        </Link>
-                                        <Link className="nav-link" to="/orders">
+                                            {cartCount > 0 && (
+                                                <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                                    {cartCount}
+                                                </span>
+                                            )}
+                                        </Nav.Link>
+                                        <Nav.Link as={Link} to="/orders" className="mx-2">
                                             Orders
-                                        </Link>
+                                        </Nav.Link>
                                     </>
                                 )}
-                                <Link className="nav-link" to="/profile">
-                                    <FaUserCircle size={20} className="me-1" />
-                                    Profile
-                                </Link>
-                                <Link className="nav-link" to="/logout">
+                                <Nav.Link as={Link} to="/profile" className="mx-2">
+                                    <Image 
+                                        src={profilePicture}
+                                        roundedCircle
+                                        width="30"
+                                        height="30"
+                                        className="border border-white"
+                                        onError={(e) => {
+                                            e.target.onerror = null;
+                                            e.target.src = 'https://images.rawpixel.com/image_png_800/cHJpdmF0ZS9sci9pbWFnZXMvd2Vic2l0ZS8yMDIzLTAxL3JtNjA5LXNvbGlkaWNvbi13LTAwMi1wLnBuZw.png';
+                                        }}
+                                    />
+                                </Nav.Link>
+                                <Nav.Link as={Link} to="/logout" className="mx-2">
                                     Logout
-                                </Link>
+                                </Nav.Link>
                             </>
                         ) : (
                             <>
-                                <Link 
-                                    className={`nav-link ${location.pathname === '/login' ? 'active' : ''}`} 
-                                    to="/login"
+                                <Nav.Link 
+                                    as={Link} 
+                                    to="/login" 
+                                    active={location.pathname === '/login'}
+                                    className="mx-2"
                                 >
                                     Login
-                                </Link>
-                                <Link 
-                                    className={`nav-link ${location.pathname === '/register' ? 'active' : ''}`} 
-                                    to="/register"
+                                </Nav.Link>
+                                <Nav.Link 
+                                    as={Link} 
+                                    to="/register" 
+                                    active={location.pathname === '/register'}
+                                    className="mx-2"
                                 >
                                     Register
-                                </Link>
+                                </Nav.Link>
                             </>
                         )}
                     </Nav>

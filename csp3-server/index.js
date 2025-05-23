@@ -9,7 +9,7 @@ const cartRoutes = require("./routes/cartRoutes");
 const PORT = 4000;
 
 // Add the database connection
-mongoose.connect("mongodb+srv://mixck:Mixck20@ua-database.jjnzt.mongodb.net/users?retryWrites=true&w=majority&appName=UA-DATABASE");
+mongoose.connect("mongodb+srv://admin:admin123@ua-database.2knwv70.mongodb.net/ecommerceDB?retryWrites=true&w=majority");
 
 mongoose.connection.once('open', () => console.log('Now connected to MongoDB.'));
 
