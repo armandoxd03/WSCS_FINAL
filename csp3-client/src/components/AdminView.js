@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useContext, useRef } from 'react';
-import { Form, Table, Button, Modal, Accordion, Card, Pagination, Spinner } from 'react-bootstrap';
+import { Form, Table, Button, Modal, Accordion, Card, Spinner, Image } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import moment from 'moment';
 import UserContext from '../UserContext';
@@ -7,13 +7,22 @@ import Swal from 'sweetalert2';
 
 const PLACEHOLDER_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/1/14/No_Image_Available.jpg";
 const PAGE_SIZE = 5;
+const ORDER_PAGE_SIZE = 4;
 
 export default function AdminView() {
     const { user } = useContext(UserContext);
     const [products, setProducts] = useState([]);
-    const [displayedProducts, setDisplayedProducts] = useState([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [displayedProducts, setDisplayedProducts] = useState([]);
+    const [orders, setOrders] = useState([]);
+    const [ordersLoading, setOrdersLoading] = useState(true);
+
+    // Pagination for orders
+    const [orderPage, setOrderPage] = useState(1);
+    const [orderTotalPages, setOrderTotalPages] = useState(1);
+    const [displayedOrders, setDisplayedOrders] = useState([]);
+
     const [id, setId] = useState("");
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
@@ -22,21 +31,17 @@ export default function AdminView() {
     const [showAdd, setShowAdd] = useState(false);
     const [showEdit, setShowEdit] = useState(false);
     const [toggle, setToggle] = useState(false);
-    const [ordersList, setOrdersList] = useState([]);
     const [addImageError, setAddImageError] = useState(false);
     const [editImageError, setEditImageError] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [ordersLoading, setOrdersLoading] = useState(true);
 
     const addImgRef = useRef(null);
     const editImgRef = useRef(null);
 
-    const getAuthHeaders = () => {
-        return {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-        };
-    };
+    const getAuthHeaders = () => ({
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+    });
 
     const fetchProducts = async () => {
         setLoading(true);
@@ -55,10 +60,16 @@ export default function AdminView() {
                 throw new Error('Invalid products data format');
             }
 
-            setProducts(data);
-            setTotalPages(Math.max(1, Math.ceil(data.length / PAGE_SIZE)));
+            // Sort products: active first, then archived
+            const sortedProducts = [...data].sort((a, b) => {
+                if (a.isActive === b.isActive) return 0;
+                return a.isActive ? -1 : 1;
+            });
+
+            setProducts(sortedProducts);
+            setTotalPages(Math.max(1, Math.ceil(sortedProducts.length / PAGE_SIZE)));
             setCurrentPage(1);
-            setDisplayedProducts(data.slice(0, PAGE_SIZE));
+            setDisplayedProducts(sortedProducts.slice(0, PAGE_SIZE));
         } catch (err) {
             console.error('Fetch products error:', err);
             Swal.fire({
@@ -96,37 +107,7 @@ export default function AdminView() {
                 ordersArray = [data.order];
             }
 
-            const allOrders = ordersArray.map((order, index) => (
-                <Card key={order._id}>
-                    <Accordion.Toggle
-                        as={Card.Header}
-                        eventKey={String(index + 1)}
-                        className="bg-primary text-white"
-                        style={{ cursor: "pointer" }}
-                    >
-                        Order #{index + 1} - {moment(order.orderedOn).format("MMM Do YYYY")}
-                    </Accordion.Toggle>
-                    <Accordion.Collapse eventKey={String(index + 1)}>
-                        <Card.Body>
-                            {order.productsOrdered.length > 0 ? (
-                                order.productsOrdered.map((product) => (
-                                    <div key={product._id}>
-                                        <h6>{product.productName}</h6>
-                                        <p>Quantity: {product.quantity}</p>
-                                        <p>Price: ₱{product.price.toFixed(2)}</p>
-                                        <hr />
-                                    </div>
-                                ))
-                            ) : (
-                                <span>No products in this order</span>
-                            )}
-                            <h5 className="mt-3">Total: <span className="text-success">₱{order.totalPrice.toFixed(2)}</span></h5>
-                        </Card.Body>
-                    </Accordion.Collapse>
-                </Card>
-            ));
-
-            setOrdersList(allOrders);
+            setOrders(ordersArray);
         } catch (err) {
             console.error('Fetch orders error:', err);
             Swal.fire({
@@ -135,18 +116,13 @@ export default function AdminView() {
                 text: err.message,
                 timer: 2000
             });
-            setOrdersList([]);
+            setOrders([]);
         } finally {
             setOrdersLoading(false);
         }
     };
 
-    useEffect(() => {
-        fetchProducts();
-        fetchOrders();
-        // eslint-disable-next-line
-    }, []);
-
+    // Products pagination
     useEffect(() => {
         if (Array.isArray(products)) {
             const startIdx = (currentPage - 1) * PAGE_SIZE;
@@ -154,6 +130,29 @@ export default function AdminView() {
             setDisplayedProducts(products.slice(startIdx, endIdx));
         }
     }, [products, currentPage]);
+
+    // Orders pagination
+    useEffect(() => {
+        if (Array.isArray(orders)) {
+            setOrderTotalPages(Math.max(1, Math.ceil(orders.length / ORDER_PAGE_SIZE)));
+            setOrderPage(1);
+        }
+    }, [orders]);
+
+    useEffect(() => {
+        if (Array.isArray(orders)) {
+            const startIdx = (orderPage - 1) * ORDER_PAGE_SIZE;
+            const endIdx = startIdx + ORDER_PAGE_SIZE;
+            setDisplayedOrders(orders.slice(startIdx, endIdx));
+        }
+    }, [orders, orderPage]);
+
+    useEffect(() => {
+        fetchProducts();
+        fetchOrders();
+    }, []);
+
+    // ... all previous modal handlers and CRUD remain unchanged ...
 
     const openAdd = () => {
         setShowAdd(true);
@@ -351,25 +350,46 @@ export default function AdminView() {
             });
     };
 
-    // Pagination items, highlight only the active page in blue, others in gray
-    const paginationItems = [];
-    for (let number = 1; number <= totalPages; number++) {
-        paginationItems.push(
-            <Pagination.Item
-                key={number}
-                active={number === currentPage}
-                onClick={() => setCurrentPage(number)}
-                style={{
-                  backgroundColor: number === currentPage ? '#0d6efd' : '#f8f9fa',
-                  color: number === currentPage ? 'white' : '#0d6efd',
-                  fontWeight: number === currentPage ? 'bold' : 'normal',
-                  border: number === currentPage ? '1px solid #0d6efd' : undefined
-                }}
-            >
-                {number}
-            </Pagination.Item>
-        );
-    }
+    const deleteProduct = (productId) => {
+        Swal.fire({
+            title: 'Are you sure?',
+            text: "You won't be able to revert this!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, delete it!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch(`${process.env.REACT_APP_API_URL}/products/${productId}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.message === 'Product deleted successfully') {
+                        Swal.fire(
+                            'Deleted!',
+                            'Product has been deleted.',
+                            'success'
+                        );
+                        fetchProducts();
+                    } else {
+                        throw new Error('Delete failed');
+                    }
+                })
+                .catch(err => {
+                    console.error('Error deleting product:', err);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Failed to delete product',
+                        text: 'Please try again',
+                        timer: 1500
+                    });
+                });
+            }
+        });
+    };
 
     const renderLoading = () => (
         <div className="text-center py-5">
@@ -377,10 +397,55 @@ export default function AdminView() {
         </div>
     );
 
+    // Pro pagination numbers only, with color depending on active page
+    const renderPagination = () => (
+        <div className="pro-admin-pagination d-flex justify-content-center my-3">
+            {Array.from({ length: totalPages }, (_, idx) => {
+                const pageNum = idx + 1;
+                let pageClass = "pro-page-num";
+                if (pageNum === currentPage) pageClass += " pro-page-num-active";
+                else if (pageNum === 1) pageClass += " pro-page-num-start";
+                else if (pageNum === totalPages) pageClass += " pro-page-num-end";
+                return (
+                    <span
+                        key={pageNum}
+                        className={pageClass}
+                        onClick={() => setCurrentPage(pageNum)}
+                        style={{ cursor: "pointer", margin: "0 6px" }}
+                    >
+                        {pageNum}
+                    </span>
+                );
+            })}
+        </div>
+    );
+
+    const renderOrderPagination = () => (
+        <div className="pro-admin-pagination d-flex justify-content-center my-3">
+            {Array.from({ length: orderTotalPages }, (_, idx) => {
+                const pageNum = idx + 1;
+                let pageClass = "pro-page-num";
+                if (pageNum === orderPage) pageClass += " pro-page-num-active";
+                else if (pageNum === 1) pageClass += " pro-page-num-start";
+                else if (pageNum === orderTotalPages) pageClass += " pro-page-num-end";
+                return (
+                    <span
+                        key={pageNum}
+                        className={pageClass}
+                        onClick={() => setOrderPage(pageNum)}
+                        style={{ cursor: "pointer", margin: "0 6px" }}
+                    >
+                        {pageNum}
+                    </span>
+                );
+            })}
+        </div>
+    );
+
     return (
-        <div className="container py-4">
+        <div className="container py-4 admin-dashboard-bg">
             <div className="text-center mb-4">
-                <h2>Admin Dashboard</h2>
+                <h2 className="admin-dashboard-title">Admin Dashboard</h2>
                 <div className="d-flex justify-content-center gap-2 mb-3">
                     <Button variant="primary" onClick={openAdd}>
                         Add New Product
@@ -397,7 +462,7 @@ export default function AdminView() {
             {!toggle ? (
                 loading ? renderLoading() : (
                     <>
-                        <Table striped bordered hover responsive className="shadow-sm">
+                        <Table striped bordered hover responsive className="shadow-sm admin-table">
                             <thead className="bg-dark text-white">
                                 <tr>
                                     <th>Image</th>
@@ -424,7 +489,7 @@ export default function AdminView() {
                                             />
                                         </td>
                                         <td className="align-middle">
-                                            <Link to={`/products/${product._id}`}>{product.name}</Link>
+                                            <Link to={`/products/${product._id}`} className="admin-link">{product.name}</Link>
                                         </td>
                                         <td className="align-middle">{product.description}</td>
                                         <td className="align-middle">₱{product.price.toFixed(2)}</td>
@@ -444,18 +509,27 @@ export default function AdminView() {
                                                 >
                                                     Edit
                                                 </Button>
+                                                <Button
+                                                    variant="outline-danger"
+                                                    size="sm"
+                                                    onClick={() => deleteProduct(product._id)}
+                                                >
+                                                    Delete
+                                                </Button>
                                                 {product.isActive ? (
                                                     <Button
-                                                        variant="outline-danger"
+                                                        variant="archive"
                                                         size="sm"
+                                                        className="btn-archive"
                                                         onClick={() => archiveProduct(product._id)}
                                                     >
                                                         Archive
                                                     </Button>
                                                 ) : (
                                                     <Button
-                                                        variant="outline-success"
+                                                        variant="activate"
                                                         size="sm"
+                                                        className="btn-activate"
                                                         onClick={() => activateProduct(product._id)}
                                                     >
                                                         Activate
@@ -467,41 +541,73 @@ export default function AdminView() {
                                 ))}
                             </tbody>
                         </Table>
-                        {products.length > 0 && (
-                            <div className="d-flex justify-content-center mt-3">
-                               <Pagination>
-                                    <Pagination.Prev
-                                        disabled={currentPage === 1}
-                                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                                    />
-                                    {Array.from({ length: totalPages }, (_, i) => (
-                                        <Pagination.Item
-                                        key={i + 1}
-                                        active={i + 1 === currentPage}
-                                        onClick={() => setCurrentPage(i + 1)}
-                                        aria-current={i + 1 === currentPage ? "page" : undefined}
-                                        aria-label={`Go to page ${i + 1}`}
-                                        >
-                                        {i + 1}
-                                        </Pagination.Item>
-                                    ))}
-                                    <Pagination.Next
-                                        disabled={currentPage === totalPages}
-                                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                                    />
-                                    </Pagination>
-                            </div>
-                        )}
+                        {totalPages > 1 && renderPagination()}
                     </>
                 )
             ) : (
                 <div className="mt-4">
                     <h4 className="mb-3">Order History</h4>
                     {ordersLoading ? renderLoading() : (
-                        ordersList.length > 0 ? (
-                            <Accordion defaultActiveKey="1">
-                                {ordersList}
-                            </Accordion>
+                        orders.length > 0 ? (
+                            <>
+                                <Accordion>
+                                    {displayedOrders.map((order, index) => (
+                                        <Card key={order._id}>
+                                            <Accordion.Toggle
+                                                as={Card.Header}
+                                                eventKey={index + 1}
+                                                className="bg-secondary text-white"
+                                                style={{ cursor: "pointer" }}
+                                            >
+                                                Order #{(orderPage - 1) * ORDER_PAGE_SIZE + index + 1} - Purchased on: {moment(order.orderedOn).format("MM-DD-YYYY")} (Click for Details)
+                                            </Accordion.Toggle>
+                                            <Accordion.Collapse eventKey={index + 1}>
+                                                <Card.Body>
+                                                    <h6>Items:</h6>
+                                                    <ul style={{ listStyle: "none", paddingLeft: 0 }}>
+                                                        {order.productsOrdered.map(item => (
+                                                            <li key={item.productId} className="d-flex align-items-center mb-2">
+                                                                <Image
+                                                                    src={item.imageUrl || PLACEHOLDER_IMAGE}
+                                                                    alt={item.productName}
+                                                                    width={38}
+                                                                    height={38}
+                                                                    rounded
+                                                                    style={{
+                                                                        objectFit: 'cover',
+                                                                        border: '1px solid #eee',
+                                                                        marginRight: 10
+                                                                    }}
+                                                                    onError={e => {
+                                                                        e.target.onerror = null;
+                                                                        e.target.src = PLACEHOLDER_IMAGE;
+                                                                    }}
+                                                                />
+                                                                <span>
+                                                                    {item.productName} - Quantity: {item.quantity}
+                                                                </span>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                    <h6>Total: <span className="text-warning">₱{order.totalPrice}</span></h6>
+                                                    <div>
+                                                        <strong>Ordered By:</strong>{" "}
+                                                        {order.user
+                                                            ? `${order.user.firstName} ${order.user.lastName} (${order.user.email})`
+                                                            : order.userId}
+                                                        <br />
+                                                        <strong>Address:</strong> {order.address}<br />
+                                                        <strong>Shipping Option:</strong> {order.shippingOption}<br />
+                                                        <strong>Payment Method:</strong> {order.paymentMethod}<br />
+                                                        <strong>Message:</strong> {order.message}
+                                                    </div>
+                                                </Card.Body>
+                                            </Accordion.Collapse>
+                                        </Card>
+                                    ))}
+                                </Accordion>
+                                {orderTotalPages > 1 && renderOrderPagination()}
+                            </>
                         ) : (
                             <div className="alert alert-info">
                                 No orders found
@@ -513,7 +619,7 @@ export default function AdminView() {
 
             {/* Add Product Modal */}
             <Modal show={showAdd} onHide={closeAdd} centered>
-                <Modal.Header closeButton className="bg-dark text-white">
+                <Modal.Header  className="bg-dark text-white">
                     <Modal.Title>Add New Product</Modal.Title>
                 </Modal.Header>
                 <Form onSubmit={addProduct}>
@@ -595,7 +701,7 @@ export default function AdminView() {
 
             {/* Edit Product Modal */}
             <Modal show={showEdit} onHide={closeEdit} centered>
-                <Modal.Header closeButton className="bg-dark text-white">
+                <Modal.Header  className="bg-dark text-white">
                     <Modal.Title>Edit Product</Modal.Title>
                 </Modal.Header>
                 <Form onSubmit={(e) => editProduct(e, id)}>

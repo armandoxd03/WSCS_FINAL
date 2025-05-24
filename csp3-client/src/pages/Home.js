@@ -1,25 +1,27 @@
 import React from 'react';
-import Banner from '../components/Banner';
 import Highlights from '../components/Highlights';
-import { Container } from 'react-bootstrap';
+import { Container, Button } from 'react-bootstrap';
 
-export default function Home(){
-
-    const pageData = {
-        title: "The UA Shop",
-        content: "Products for everyone, everywhere",
-        destination: "/products",
-        label: "Browse Products"
-    };
-
-    return(
+export default function Home() {
+    return (
         <React.Fragment>
-            <Banner data={pageData}/>
-            <Container fluid>
-                <h2 className="text-center mb-4">Featured Products</h2>
-                <Highlights/>
+            <div className="pro-home-banner compact-banner" />
+            <Container fluid className="pro-featured-container compact-featured">
+                <h2 className="text-center mb-3 pro-featured-title">🌟 Featured Products</h2>
+                <Highlights />
+                <div className="shop-belowhighlights text-center mt-3">
+                    <div className="shop-content mb-2">
+                        Products for everyone, everywhere
+                    </div>
+                    <Button
+                        href="/products"
+                        className="browse-products-btn"
+                        variant="success"
+                    >
+                        Browse Products
+                    </Button>
+                </div>
             </Container>
         </React.Fragment>
     );
-    
 }

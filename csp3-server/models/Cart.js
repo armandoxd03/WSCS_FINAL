@@ -8,31 +8,16 @@ const cartSchema = new mongoose.Schema({
     cartItems: [
         {
             productId: {
-                type: String,
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Product",
                 required: [true, 'Product ID is Required']
-            },
-            productName: {
-                type: String,
-                required: [true, 'Product Name is Required']
-            },
-            price: {
-                type: Number,
-                required: [true, 'Price is Required']
             },
             quantity: {
                 type: Number,
                 required: [true, 'Quantity is Required']
-            },
-            subtotal: {
-                type: Number,
-                required: [true, 'Subtotal is Required']
             }
         }
-    ],
-    totalPrice: {
-        type: Number,
-        default: 0
-    }
+    ]
 });
 
 module.exports = mongoose.model('Cart', cartSchema);

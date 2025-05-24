@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { Button, Modal, Form } from 'react-bootstrap';
 import Swal from 'sweetalert2';
 import UserContext from '../UserContext';
@@ -11,10 +11,26 @@ const ResetPassword = () => {
     newPassword: '',
     confirmPassword: ''
   });
+  const [fieldErrors, setFieldErrors] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+
+  // Automatically validate fields on every change
+  useEffect(() => {
+    validateFields();
+    // eslint-disable-next-line
+  }, [passwordData]);
 
   const handleClose = () => {
     setShowModal(false);
     setPasswordData({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    });
+    setFieldErrors({
       currentPassword: '',
       newPassword: '',
       confirmPassword: ''
@@ -26,24 +42,34 @@ const ResetPassword = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setPasswordData(prev => ({ ...prev, [name]: value }));
+    // No need to clear field errors here since validateFields (in useEffect) will handle it
+  };
+
+  const validateFields = () => {
+    const errors = {};
+    if (!passwordData.currentPassword) {
+      errors.currentPassword = 'Current password is required.';
+    }
+    if (!passwordData.newPassword) {
+      errors.newPassword = 'New password is required.';
+    } else if (passwordData.newPassword.length < 8) {
+      errors.newPassword = 'Password must be at least 8 characters long.';
+    }
+    if (!passwordData.confirmPassword) {
+      errors.confirmPassword = 'Please confirm your new password.';
+    } else if (
+      passwordData.newPassword &&
+      passwordData.confirmPassword &&
+      passwordData.newPassword !== passwordData.confirmPassword
+    ) {
+      errors.confirmPassword = 'Passwords do not match.';
+    }
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleResetPassword = async () => {
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      Swal.fire({
-        title: 'Password Mismatch',
-        icon: 'error',
-        text: 'The entered passwords do not match. Please try again.',
-      });
-      return;
-    }
-
-    if (passwordData.newPassword.length < 8) {
-      Swal.fire({
-        title: 'Password Too Short',
-        icon: 'error',
-        text: 'Password must be at least 8 characters long.',
-      });
+    if (!validateFields()) {
       return;
     }
 
@@ -102,7 +128,11 @@ const ResetPassword = () => {
                 value={passwordData.currentPassword}
                 onChange={handleInputChange}
                 required
+                isInvalid={!!fieldErrors.currentPassword}
               />
+              <Form.Control.Feedback type="invalid">
+                {fieldErrors.currentPassword}
+              </Form.Control.Feedback>
             </Form.Group>
 
             <Form.Group className="mb-3">
@@ -113,7 +143,11 @@ const ResetPassword = () => {
                 value={passwordData.newPassword}
                 onChange={handleInputChange}
                 required
+                isInvalid={!!fieldErrors.newPassword}
               />
+              <Form.Control.Feedback type="invalid">
+                {fieldErrors.newPassword}
+              </Form.Control.Feedback>
             </Form.Group>
 
             <Form.Group className="mb-3">
@@ -124,7 +158,11 @@ const ResetPassword = () => {
                 value={passwordData.confirmPassword}
                 onChange={handleInputChange}
                 required
+                isInvalid={!!fieldErrors.confirmPassword}
               />
+              <Form.Control.Feedback type="invalid">
+                {fieldErrors.confirmPassword}
+              </Form.Control.Feedback>
             </Form.Group>
           </Form>
         </Modal.Body>

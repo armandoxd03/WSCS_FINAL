@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Row, Col, Form, Button, Image, Alert, Modal } from 'react-bootstrap';
+import { Row, Col, Form, Button, Image, Alert } from 'react-bootstrap';
 import UserContext from '../UserContext';
 import { Redirect } from 'react-router-dom';
 import Swal from 'sweetalert2';
@@ -17,6 +17,7 @@ export default function Profile() {
     });
     const [isEditing, setIsEditing] = useState(false);
     const [error, setError] = useState('');
+    const [fieldErrors, setFieldErrors] = useState({});
 
     useEffect(() => {
         fetch(`${process.env.REACT_APP_API_URL}/users/details`, {
@@ -46,20 +47,59 @@ export default function Profile() {
         });
     }, []);
 
+    const validateFields = (fields = formData) => {
+        const errors = {};
+
+        if (!fields.firstName.trim()) errors.firstName = "First name is required.";
+        if (!fields.lastName.trim()) errors.lastName = "Last name is required.";
+        if (!fields.email.trim()) {
+            errors.email = "Email is required.";
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email)) {
+            errors.email = "Invalid email format.";
+        }
+        if (!fields.mobileNo.trim()) {
+            errors.mobileNo = "Mobile number is required.";
+        } else if (!/^\d+$/.test(fields.mobileNo)) {
+            errors.mobileNo = "Mobile number must be numeric.";
+        } else if (fields.mobileNo.length !== 11) {
+            errors.mobileNo = "Mobile number must be exactly 11 digits.";
+        }
+        if (fields.profilePicture && fields.profilePicture.trim()) {
+            try {
+                new URL(fields.profilePicture);
+            } catch {
+                errors.profilePicture = "Profile picture must be a valid URL.";
+            }
+        }
+
+        setFieldErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        const updatedData = { ...formData, [name]: value };
+        setFormData(updatedData);
+        validateFields(updatedData);
     };
 
     const handleSave = async () => {
+        if (!validateFields()) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Invalid input',
+                text: 'Please correct the errors in the form'
+            });
+            return;
+        }
         try {
             const response = await fetch(`${process.env.REACT_APP_API_URL}/users/update-profile`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${localStorage.getItem('token')}`,
-                },
-                body: JSON.stringify(formData),
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${localStorage.getItem('token')}`,
+              },
+              body: JSON.stringify(formData),
             });
 
             if (!response.ok) {
@@ -99,7 +139,7 @@ export default function Profile() {
                         roundedCircle
                         width={150}
                         height={150}
-                        className="border border-3 border-primary mb-3"
+                        className="border border-3 border-primary mb-3 profile-avatar"
                         onError={(e) => {
                             e.target.onerror = null;
                             e.target.src = 'https://images.rawpixel.com/image_png_800/cHJpdmF0ZS9sci9pbWFnZXMvd2Vic2l0ZS8yMDIzLTAxL3JtNjA5LXNvbGlkaWNvbi13LTAwMi1wLnBuZw.png';
@@ -114,14 +154,20 @@ export default function Profile() {
                                 placeholder="Enter image URL"
                                 value={formData.profilePicture}
                                 onChange={handleInputChange}
+                                isInvalid={!!fieldErrors.profilePicture}
                             />
+                            {fieldErrors.profilePicture && (
+                                <Form.Control.Feedback type="invalid">
+                                    {fieldErrors.profilePicture}
+                                </Form.Control.Feedback>
+                            )}
                             <div className="mt-2 text-center">
                                 <small className="text-muted">Preview:</small>
                                 <img
                                     src={formData.profilePicture}
                                     alt="Preview"
-                                    className="img-thumbnail mt-1"
-                                    style={{ maxHeight: '100px' }}
+                                    className="img-thumbnail mt-1 profile-avatar-sm"
+                                    style={{ objectFit: 'cover' }}
                                     onError={(e) => {
                                         e.target.onerror = null;
                                         e.target.src = 'https://images.rawpixel.com/image_png_800/cHJpdmF0ZS9sci9pbWFnZXMvd2Vic2l0ZS8yMDIzLTAxL3JtNjA5LXNvbGlkaWNvbi13LTAwMi1wLnBuZw.png';
@@ -142,7 +188,13 @@ export default function Profile() {
                                     value={formData.firstName}
                                     onChange={handleInputChange}
                                     required
+                                    isInvalid={!!fieldErrors.firstName}
                                 />
+                                {fieldErrors.firstName && (
+                                    <Form.Control.Feedback type="invalid">
+                                        {fieldErrors.firstName}
+                                    </Form.Control.Feedback>
+                                )}
                             </Form.Group>
                             <Form.Group className="mb-3">
                                 <Form.Label>Last Name</Form.Label>
@@ -152,7 +204,13 @@ export default function Profile() {
                                     value={formData.lastName}
                                     onChange={handleInputChange}
                                     required
+                                    isInvalid={!!fieldErrors.lastName}
                                 />
+                                {fieldErrors.lastName && (
+                                    <Form.Control.Feedback type="invalid">
+                                        {fieldErrors.lastName}
+                                    </Form.Control.Feedback>
+                                )}
                             </Form.Group>
                             <Form.Group className="mb-3">
                                 <Form.Label>Email</Form.Label>
@@ -162,7 +220,13 @@ export default function Profile() {
                                     value={formData.email}
                                     onChange={handleInputChange}
                                     required
+                                    isInvalid={!!fieldErrors.email}
                                 />
+                                {fieldErrors.email && (
+                                    <Form.Control.Feedback type="invalid">
+                                        {fieldErrors.email}
+                                    </Form.Control.Feedback>
+                                )}
                             </Form.Group>
                             <Form.Group className="mb-3">
                                 <Form.Label>Mobile Number</Form.Label>
@@ -172,7 +236,14 @@ export default function Profile() {
                                     value={formData.mobileNo}
                                     onChange={handleInputChange}
                                     required
+                                    isInvalid={!!fieldErrors.mobileNo}
+                                    maxLength={11}
                                 />
+                                {fieldErrors.mobileNo && (
+                                    <Form.Control.Feedback type="invalid">
+                                        {fieldErrors.mobileNo}
+                                    </Form.Control.Feedback>
+                                )}
                             </Form.Group>
                         </>
                     ) : (
@@ -202,7 +273,7 @@ export default function Profile() {
                                 <Button variant="outline-primary" onClick={() => setIsEditing(true)}>
                                     Edit Profile
                                 </Button>
-                                <ResetPassword /> {/* Use the ResetPassword component */}
+                                <ResetPassword />
                             </>
                         )}
                     </div>

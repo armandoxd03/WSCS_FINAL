@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Card, Accordion, Jumbotron } from 'react-bootstrap';
+import { Container, Card, Accordion, Jumbotron, Image } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import moment from 'moment';
+
+const DEFAULT_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/1/14/No_Image_Available.jpg";
 
 export default function Orders() {
     const [orders, setOrders] = useState([]);
@@ -40,7 +42,7 @@ export default function Orders() {
         });
 
         return () => {
-            isMounted = false; // 🔥 Cleanup to prevent memory leaks
+            isMounted = false;
         };
     }, []);
 
@@ -70,14 +72,38 @@ export default function Orders() {
                             <Accordion.Collapse eventKey={index + 1}>
                                 <Card.Body>
                                     <h6>Items:</h6>
-                                    <ul>
+                                    <ul style={{ listStyle: "none", paddingLeft: 0 }}>
                                         {order.productsOrdered.map(item => (
-                                            <li key={item._id}>
-                                                {item.productName} - Quantity: {item.quantity}
+                                            <li key={item.productId} className="d-flex align-items-center mb-2">
+                                                <Image
+                                                    src={item.imageUrl || DEFAULT_IMAGE}
+                                                    alt={item.productName}
+                                                    width={38}
+                                                    height={38}
+                                                    rounded
+                                                    style={{
+                                                        objectFit: 'cover',
+                                                        border: '1px solid #eee',
+                                                        marginRight: 10
+                                                    }}
+                                                    onError={e => {
+                                                        e.target.onerror = null;
+                                                        e.target.src = DEFAULT_IMAGE;
+                                                    }}
+                                                />
+                                                <span>
+                                                    {item.productName} - Quantity: {item.quantity}
+                                                </span>
                                             </li>
                                         ))}
                                     </ul>
                                     <h6>Total: <span className="text-warning">₱{order.totalPrice}</span></h6>
+                                    <div>
+                                        <strong>Address:</strong> {order.address}<br/>
+                                        <strong>Shipping Option:</strong> {order.shippingOption}<br/>
+                                        <strong>Payment Method:</strong> {order.paymentMethod}<br/>
+                                        <strong>Message:</strong> {order.message}
+                                    </div>
                                 </Card.Body>
                             </Accordion.Collapse>
                         </Card>
